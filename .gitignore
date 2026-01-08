@@ -1,0 +1,6 @@
+budget.db
+budget_entries.csv
+migrate_entries.py
+log/
+.RData
+.Rhistory
