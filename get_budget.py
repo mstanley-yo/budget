@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 import tomllib
 import subprocess
+import argparse
 
 with open("config.toml", "rb") as f:
     config = tomllib.load(f)
@@ -76,6 +77,42 @@ def insert_budget_entry(db_path, entry_dt, store_name, amount):
         except sqlite3.IntegrityError:
             # Entry already exists
             return False
+
+def manual_add_entry(entry_string):
+    """
+    Manually add a budget entry from command line.
+    
+    Args:
+        entry_string: String in format "AMOUNT STORE_NAME" (e.g., "2000 TEST")
+    """
+    db_path = init_database()
+    
+    # Parse the entry string
+    parts = entry_string.split(None, 1)  # Split on first whitespace
+    if len(parts) != 2:
+        print("❌ Error: Entry must be in format 'AMOUNT STORE_NAME'")
+        print("   Example: python script.py -a '2000 TEST'")
+        return
+    
+    try:
+        amount = int(parts[0])
+        store_name = parts[1].strip()
+    except ValueError:
+        print("❌ Error: Amount must be a valid integer")
+        return
+    
+    # Use current datetime for both entry and log time
+    current_dt = datetime.now()
+    
+    # Insert the entry
+    if insert_budget_entry(db_path, current_dt, store_name, amount):
+        print(f"✅ Manually logged: {current_dt} | {store_name} | ¥{amount:,}")
+        
+        # Export to CSV
+        export_to_csv(db_path)
+        print("📄 CSV updated")
+    else:
+        print(f"⏭️  Duplicate entry: {current_dt} | {store_name} | ¥{amount:,}")
 
 def get_text_body(message):
     """Return the first text/plain body decoded as detected charset."""
@@ -227,6 +264,18 @@ def run_app():
     subprocess.run(["Rscript", str(WD / "run_app.R")])
 
 def main():
+    parser = argparse.ArgumentParser(description="Budget tracker with email sync and manual entry")
+    parser.add_argument("-a", "--add", type=str, metavar="ENTRY",
+                       help='Manually add entry in format "AMOUNT STORE_NAME" (e.g., "2000 TEST")')
+    
+    args = parser.parse_args()
+    
+    # Handle manual entry mode
+    if args.add:
+        manual_add_entry(args.add)
+        return
+    
+    # Normal operation: fetch emails and process
     # Initialize database
     db_path = init_database()
     

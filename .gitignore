@@ -4,3 +4,4 @@ migrate_entries.py
 log/
 .RData
 .Rhistory
+last_run.log
