@@ -265,42 +265,39 @@ def run_app():
 
 def main():
     parser = argparse.ArgumentParser(description="Budget tracker with email sync and manual entry")
-    parser.add_argument("-a", "--add", type=str, metavar="ENTRY",
-                       help='Manually add entry in format "AMOUNT STORE_NAME" (e.g., "2000 TEST")')
-    
+    parser.add_argument(
+        "-a", "--add", type=str, metavar="ENTRY",
+        help='Manually add entry in format "AMOUNT STORE_NAME" (e.g., "2000 TEST")'
+    )
     args = parser.parse_args()
-    
+
     # Handle manual entry mode
     if args.add:
         manual_add_entry(args.add)
         return
-    
+
     # Normal operation: fetch emails and process
     # Initialize database
     db_path = init_database()
-    
+
     # Load last run time
     last_run = load_last_run()
     print("Last run:", last_run)
-    
+
     # Fetch emails from IMAP server
-    messages = fetch_emails_since(last_run)
-    
-    # Process messages if any were found
-    if messages:
-        new_entries = process_messages(messages, db_path, last_run)
-        print(f"\n📊 Summary: {new_entries} new entries added to database.")
-        
-        # Export database to CSV
-        export_to_csv(db_path)
-        
-        # Update last run timestamp
-        save_last_run()
-        print(f"💾 Updated last_run.log")
-    
-    # Run viz app
-    print(f"📈 Running shiny app for visualization")
-    run_app()
+    try:
+        messages = fetch_emails_since(last_run)
+        if messages:
+            new_entries = process_messages(messages, db_path, last_run)
+            print(f"\n📊 Summary: {new_entries} new entries added to database.")
+            export_to_csv(db_path)
+
+            # Update last run timestamp
+            save_last_run()
+            print(f"💾 Updated last_run.log")
+    finally:
+        print(f"📈 Running shiny app for visualization")
+        run_app()
 
 if __name__ == "__main__":
     main()
