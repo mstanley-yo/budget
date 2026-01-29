@@ -9,6 +9,7 @@ from datetime import datetime
 import tomllib
 import subprocess
 import argparse
+import sys
 
 with open("config.toml", "rb") as f:
     config = tomllib.load(f)
@@ -21,11 +22,8 @@ WD = Path(config["working_directory"])
 def init_database():
     """Initialize the SQLite database with the budget_entries table."""
     db_path = WD / "budget.db"
-    
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        
-        cursor.execute("""
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS budget_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 entry_datetime TEXT NOT NULL,
@@ -35,9 +33,6 @@ def init_database():
                 UNIQUE(entry_datetime, store_name, amount)
             )
         """)
-        
-        conn.commit()
-    
     return db_path
 
 def load_last_run():
@@ -60,19 +55,18 @@ def save_last_run():
 def insert_budget_entry(db_path, entry_dt, store_name, amount):
     """Insert a budget entry into the database."""
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        
         try:
-            cursor.execute("""
+            conn.execute(
+                """
                 INSERT INTO budget_entries (entry_datetime, store_name, amount, logged_at)
                 VALUES (?, ?, ?, ?)
-            """, (
-                entry_dt.isoformat(timespec="seconds"),
-                store_name,
-                amount,
-                datetime.now().isoformat(timespec="seconds")
-            ))
-            conn.commit()
+                """, (
+                    entry_dt.isoformat(timespec="seconds"),
+                    store_name,
+                    amount,
+                    datetime.now().isoformat(timespec="seconds")
+                )
+            )
             return True
         except sqlite3.IntegrityError:
             # Entry already exists
@@ -261,7 +255,11 @@ def process_messages(messages, db_path, last_run):
     return new_entries
 
 def run_app():
-    subprocess.run(["Rscript", str(WD / "run_app.R")])
+    try:
+        subprocess.run(["Rscript", str(WD / "run_app.R")])
+    except KeyboardInterrupt:
+        print("Received SIGINT, exiting...")
+        sys.exit()
 
 def main():
     parser = argparse.ArgumentParser(description="Budget tracker with email sync and manual entry")
